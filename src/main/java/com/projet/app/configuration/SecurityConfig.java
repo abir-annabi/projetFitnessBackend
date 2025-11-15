@@ -2,7 +2,6 @@ package com.projet.app.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -17,6 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 import com.projet.app.filters.JwtRequestFilter;
 import com.projet.app.services.jwt.DBUserServiceImpl;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -32,17 +32,33 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity security) throws Exception {
-        return security.csrf(csrf -> csrf.disable())
-                .authorizeRequests()
-                .requestMatchers(HttpMethod.POST, "/api/types").permitAll()
-                .requestMatchers("/signup", "/login", "/register", "/validateCaptcha").permitAll()
-                .requestMatchers("/api/auth/**","/api/users/**", "/api/structures/**", "/api/types/**","/api/types", "/api/structures","/api/natures/**","/api/natures", "/api/signataires/**").permitAll()                
-                .anyRequest().authenticated()
-                .and()
+        return security
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement()
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                .and()
+                .authorizeHttpRequests(auth -> auth
+                    // 🔓 Endpoints publics (sans JWT)
+                    .requestMatchers(
+                        "/signup",
+                        "/login",
+                        "/register",
+                        "/validateCaptcha",
+                        "/password/**",
+                        "/password/forgot/**",
+                        "/password/reset/**"// ✅ Mot de passe oublié et reset autorisés
+                    ).permitAll()
+
+                    // Autres endpoints accessibles sans authentification
+                    .requestMatchers(
+                        "/api/auth/**",
+                        "/api/users/**",
+                        "/password/forgot/**",
+                        "/password/reset/**"
+          
+                    ).permitAll()
+
+                    // Tout le reste nécessite authentification
+                    .anyRequest().authenticated()
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -50,7 +66,7 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
-    }
+    }	
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
